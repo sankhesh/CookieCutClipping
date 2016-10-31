@@ -1,27 +1,24 @@
 #include <vtkActor.h>
 #include <vtkBandedPolyDataContourFilter.h>
+#include <vtkBooleanOperationPolyDataFilter.h>
 #include <vtkCamera.h>
+#include <vtkCellData.h>
+#include <vtkCellDataToPointData.h>
+#include <vtkCookieCutFilter.h>
+#include <vtkFeatureEdges.h>
 #include <vtkGlyph2D.h>
 #include <vtkGlyphSource2D.h>
 #include <vtkNew.h>
 #include <vtkPlaneSource.h>
+#include <vtkPointData.h>
+#include <vtkPolyDataConnectivityFilter.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkProperty.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
 #include <vtkXMLPolyDataReader.h>
-#include <vtkBooleanOperationPolyDataFilter.h>
-#include <vtkTriangleFilter.h>
-#include <vtkCellDataToPointData.h>
-#include <vtkPointData.h>
-#include <vtkPolyDataConnectivityFilter.h>
-#include <vtkCellData.h>
 #include <vtkXMLPolyDataWriter.h>
-#include <vtkThreshold.h>
-#include <vtkDataSetMapper.h>
-#include <vtkLinearExtrusionFilter.h>
-#include <vtkLinearSubdivisionFilter.h>
 
 int main(int argc, char* argv[])
 {
@@ -49,19 +46,19 @@ int main(int argc, char* argv[])
   connectivity->ColorRegionsOn();
   connectivity->Update();
 
-  //vtkNew<vtkThreshold> threshold;
-  //threshold->SetInputConnection(connectivity->GetOutputPort());
-  //threshold->ThresholdBetween(58, 58);
   vtkNew<vtkPolyDataConnectivityFilter> extract;
   extract->SetInputConnection(connectivity->GetOutputPort());
   extract->ScalarConnectivityOn();
-  extract->SetScalarRange(58, 58);
-  extract->FullScalarConnectivityOn();
+  //extract->SetScalarRange(58, 58);
+  extract->SetScalarRange(6, 6);
 
-  vtkNew<vtkLinearExtrusionFilter> extrude;
-  extrude->SetExtrusionTypeToNormalExtrusion();
-  extrude->SetScaleFactor(1.0);
-  extrude->SetInputConnection(extract->GetOutputPort());
+  vtkNew<vtkFeatureEdges> edge;
+  edge->SetInputConnection(extract->GetOutputPort());
+  edge->BoundaryEdgesOn();
+  edge->FeatureEdgesOff();
+  edge->ManifoldEdgesOff();
+  edge->NonManifoldEdgesOff();
+  edge->Update();
 
   vtkPolyData* pd = contour->GetOutput();
   double bounds[6];
@@ -77,63 +74,42 @@ int main(int argc, char* argv[])
   vtkNew<vtkGlyphSource2D> source;
   source->SetGlyphTypeToThickCross();
   source->FilledOn();
-  source->SetScale(6.4);
+  source->SetScale(3.4);
 
   vtkNew<vtkGlyph2D> glyph;
   glyph->SetInputConnection(plane->GetOutputPort());
   glyph->SetSourceConnection(source->GetOutputPort());
 
-  vtkNew<vtkTriangleFilter> triangulate;
-  triangulate->SetInputConnection(glyph->GetOutputPort());
-  vtkNew<vtkLinearExtrusionFilter> extrude1;
-  extrude1->SetExtrusionTypeToNormalExtrusion();
-  extrude1->SetScaleFactor(1.0);
-  extrude1->SetInputConnection(glyph->GetOutputPort());
+  vtkNew<vtkCookieCutFilter> cutter;
+  cutter->SetInputConnection(glyph->GetOutputPort());
+  cutter->SetLoop(edge->GetOutput()->GetPoints());
 
-  vtkNew<vtkLinearSubdivisionFilter> subdivide;
-  subdivide->SetInputConnection(triangulate->GetOutputPort());
-
-  vtkNew<vtkBooleanOperationPolyDataFilter> boolean;
-  boolean->SetInputConnection(0, subdivide->GetOutputPort());
-  boolean->SetInputConnection(1, extract->GetOutputPort());
-  boolean->SetOperationToIntersection();
-
-  //vtkNew<vtkDataSetMapper> mapper;
-  //mapper->SetInputConnection(threshold->GetOutputPort());
   vtkNew<vtkPolyDataMapper> mapper;
-  mapper->SetInputConnection(subdivide->GetOutputPort());
+  mapper->SetInputConnection(edge->GetOutputPort());
   mapper->SetInterpolateScalarsBeforeMapping(1);
   mapper->SetColorModeToMapScalars();
   mapper->SetScalarRange(0, connectivity->GetNumberOfExtractedRegions());
 
   vtkNew<vtkPolyDataMapper> pointsMapper;
-  pointsMapper->SetInputConnection(boolean->GetOutputPort());
+  pointsMapper->SetInputConnection(cutter->GetOutputPort());
 
   vtkNew<vtkActor> actor;
   actor->SetMapper(mapper.GetPointer());
   vtkNew<vtkActor> pointsActor;
   pointsActor->SetMapper(pointsMapper.GetPointer());
-  //pointsActor->GetProperty()->SetRepresentationToWireframe();
 
   vtkNew<vtkRenderWindow> renWin;
   renWin->SetSize(601, 600); // Intentional NPOT size
-  //renWin->SetNumberOfLayers(2);
 
   vtkNew<vtkRenderer> ren;
   renWin->AddRenderer(ren.GetPointer());
-  //ren->SetLayer(0);
-  //vtkNew<vtkRenderer> pointsRen;
-  //renWin->AddRenderer(pointsRen.GetPointer());
-  //pointsRen->SetLayer(1);
 
   vtkNew<vtkRenderWindowInteractor> iren;
   iren->SetRenderWindow(renWin.GetPointer());
 
-  //ren->AddActor(actor.GetPointer());
+  ren->AddActor(actor.GetPointer());
   ren->AddActor(pointsActor.GetPointer());
   ren->ResetCamera();
-  //pointsRen->AddActor(pointsActor.GetPointer());
-  //pointsRen->ResetCamera();
 
   renWin->Render();
   iren->Start();
