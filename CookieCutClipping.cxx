@@ -4,7 +4,7 @@
 #include <vtkCamera.h>
 #include <vtkCellData.h>
 #include <vtkCellDataToPointData.h>
-#include <vtkCookieCutFilter.h>
+#include <vtkCookieCutter.h>
 #include <vtkFeatureEdges.h>
 #include <vtkGlyph2D.h>
 #include <vtkGlyphSource2D.h>
@@ -19,6 +19,7 @@
 #include <vtkRenderer.h>
 #include <vtkXMLPolyDataReader.h>
 #include <vtkXMLPolyDataWriter.h>
+#include <vtkContourLoopExtraction.h>
 
 int main(int argc, char* argv[])
 {
@@ -49,8 +50,8 @@ int main(int argc, char* argv[])
   vtkNew<vtkPolyDataConnectivityFilter> extract;
   extract->SetInputConnection(connectivity->GetOutputPort());
   extract->ScalarConnectivityOn();
-  //extract->SetScalarRange(58, 58);
-  extract->SetScalarRange(6, 6);
+  extract->SetScalarRange(58, 58);
+  //extract->SetScalarRange(6, 6);
 
   vtkNew<vtkFeatureEdges> edge;
   edge->SetInputConnection(extract->GetOutputPort());
@@ -58,7 +59,10 @@ int main(int argc, char* argv[])
   edge->FeatureEdgesOff();
   edge->ManifoldEdgesOff();
   edge->NonManifoldEdgesOff();
-  edge->Update();
+
+  vtkNew<vtkContourLoopExtraction> extractLoop;
+  extractLoop->SetInputConnection(edge->GetOutputPort());
+  extractLoop->Update();
 
   vtkPolyData* pd = contour->GetOutput();
   double bounds[6];
@@ -68,21 +72,21 @@ int main(int argc, char* argv[])
   plane->SetOrigin(bounds[0], bounds[2], 0.0);
   plane->SetPoint1(bounds[1], bounds[2], 0.0);
   plane->SetPoint2(bounds[0], bounds[3], 0.0);
-  plane->SetXResolution(30);
-  plane->SetYResolution(30);
+  plane->SetXResolution(60);
+  plane->SetYResolution(60);
 
   vtkNew<vtkGlyphSource2D> source;
   source->SetGlyphTypeToThickCross();
   source->FilledOn();
-  source->SetScale(3.4);
+  source->SetScale(1.0);
 
   vtkNew<vtkGlyph2D> glyph;
   glyph->SetInputConnection(plane->GetOutputPort());
   glyph->SetSourceConnection(source->GetOutputPort());
 
-  vtkNew<vtkCookieCutFilter> cutter;
+  vtkNew<vtkCookieCutter> cutter;
   cutter->SetInputConnection(glyph->GetOutputPort());
-  cutter->SetLoop(edge->GetOutput()->GetPoints());
+  cutter->SetLoopsData(extractLoop->GetOutput());
 
   vtkNew<vtkPolyDataMapper> mapper;
   mapper->SetInputConnection(edge->GetOutputPort());
