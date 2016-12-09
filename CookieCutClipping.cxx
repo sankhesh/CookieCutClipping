@@ -47,26 +47,15 @@ int main(int argc, char* argv[])
   connectivity->ColorRegionsOn();
   connectivity->Update();
 
-  vtkNew<vtkPolyDataConnectivityFilter> extract;
-  extract->SetInputConnection(connectivity->GetOutputPort());
-  extract->ScalarConnectivityOn();
-  extract->SetScalarRange(58, 58);
-  //extract->SetScalarRange(6, 6);
-
   vtkNew<vtkFeatureEdges> edge;
-  edge->SetInputConnection(extract->GetOutputPort());
+  edge->SetInputConnection(connectivity->GetOutputPort());
   edge->BoundaryEdgesOn();
   edge->FeatureEdgesOff();
   edge->ManifoldEdgesOff();
   edge->NonManifoldEdgesOff();
 
-  vtkNew<vtkContourLoopExtraction> extractLoop;
-  extractLoop->SetInputConnection(edge->GetOutputPort());
-  extractLoop->Update();
-
-  vtkPolyData* pd = contour->GetOutput();
   double bounds[6];
-  pd->GetBounds(bounds);
+  contour->GetOutput()->GetBounds(bounds);
 
   vtkNew<vtkPlaneSource> plane;
   plane->SetOrigin(bounds[0], bounds[2], 0.0);
@@ -86,7 +75,7 @@ int main(int argc, char* argv[])
 
   vtkNew<vtkCookieCutter> cutter;
   cutter->SetInputConnection(glyph->GetOutputPort());
-  cutter->SetLoopsData(extractLoop->GetOutput());
+  cutter->SetLoopsData(contour->GetOutput());
 
   vtkNew<vtkPolyDataMapper> mapper;
   mapper->SetInputConnection(edge->GetOutputPort());
