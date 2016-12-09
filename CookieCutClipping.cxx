@@ -72,13 +72,13 @@ int main(int argc, char* argv[])
   plane->SetOrigin(bounds[0], bounds[2], 0.0);
   plane->SetPoint1(bounds[1], bounds[2], 0.0);
   plane->SetPoint2(bounds[0], bounds[3], 0.0);
-  plane->SetXResolution(60);
+  plane->SetXResolution(100);
   plane->SetYResolution(60);
 
   vtkNew<vtkGlyphSource2D> source;
-  source->SetGlyphTypeToThickCross();
+  source->SetGlyphTypeToCircle();
   source->FilledOn();
-  source->SetScale(1.0);
+  source->SetScale(2.0);
 
   vtkNew<vtkGlyph2D> glyph;
   glyph->SetInputConnection(plane->GetOutputPort());
